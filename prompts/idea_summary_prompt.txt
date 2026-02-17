@@ -37,7 +37,7 @@ Input JSON fields
   "top_products": list of product strings most common in the cluster (may be empty)
 
 Output format
-Return JSON exactly like this:
+Return only a JSON exactly like this:
 {
   "executive_summary_bullets": ["...", "...", "..."],
   "top_3_recommendations": [
@@ -59,6 +59,106 @@ Return JSON exactly like this:
     { "rank": 3, "...": "..." }
   ]
 }
+
+
+Input example: 
+{
+  "dataset_summary": {
+    "total_rows": 42,
+    "total_clusters": 5,
+    "top_domains": [
+      {"domain": "Data", "count": 18},
+      {"domain": "Automation", "count": 14},
+      {"domain": "Other", "count": 10}
+    ],
+    "top_products": [
+      {"product": "watsonx.ai", "count": 25},
+      {"product": "watsonx.orchestrate", "count": 11}
+    ]
+  },
+  "initiative_candidates": [
+    {
+      "cluster_id": 0,
+      "popularity_count": 12,
+      "representative_idea": "Build a reusable RAG accelerator using Astra DB for unstructured enterprise data.",
+      "example_ideas": [
+        "Replace Milvus with Astra DB for enterprise RAG deployments.",
+        "Create a vertical RAG blueprint for financial services.",
+        "Develop hybrid search template for watsonx.ai clients."
+      ],
+      "top_domains": ["Data"],
+      "top_products": ["watsonx.ai"]
+    },
+    {
+      "cluster_id": 1,
+      "popularity_count": 9,
+      "representative_idea": "Create a no-code intake triage workflow in watsonx.orchestrate.",
+      "example_ideas": [
+        "Automate idea routing by domain using LLM classification.",
+        "Build scoring workflow for presales review."
+      ],
+      "top_domains": ["Automation"],
+      "top_products": ["watsonx.orchestrate"]
+    }
+  ]
+}
+
+
+Output example: 
+{
+  "executive_summary_bullets": [
+    "Submissions are heavily concentrated around enterprise RAG acceleration using watsonx.ai.",
+    "Data-focused initiatives dominate the portfolio, signaling strong demand for scalable AI deployment patterns.",
+    "Automation use cases emphasize workflow optimization and intake routing.",
+    "Recurring themes include reusable templates and presales acceleration assets.",
+    "There is clear opportunity to package these ideas into standardized accelerators."
+  ],
+  "top_3_recommendations": [
+    {
+      "rank": 1,
+      "initiative_title": "Enterprise RAG Accelerator Blueprint",
+      "cluster_id": 0,
+      "what_it_is": "A reusable RAG deployment template leveraging Astra DB for scalable unstructured data retrieval within watsonx.ai environments.",
+      "why_now": {
+        "popularity": "Largest cluster with 12 similar submissions indicating strong demand.",
+        "feasibility_score_1_to_5": 4,
+        "feasibility_justification": "Builds on existing watsonx.ai capabilities with manageable integration effort.",
+        "value_score_1_to_5": 5,
+        "value_justification": "Directly accelerates presales demos and proof-of-value engagements."
+      },
+      "first_milestone_deliverable": "Publish a reference architecture diagram and deployable demo repository."
+    },
+    {
+      "rank": 2,
+      "initiative_title": "No-Code Presales Triage Workflow",
+      "cluster_id": 1,
+      "what_it_is": "An automated idea classification and routing workflow built in watsonx.orchestrate.",
+      "why_now": {
+        "popularity": "Second-largest cluster with 9 submissions.",
+        "feasibility_score_1_to_5": 5,
+        "feasibility_justification": "Leverages existing orchestration capabilities without heavy backend development.",
+        "value_score_1_to_5": 4,
+        "value_justification": "Reduces manual review time and increases intake efficiency."
+      },
+      "first_milestone_deliverable": "Deploy a working orchestrate flow integrated with intake CSV ingestion."
+    },
+    {
+      "rank": 3,
+      "initiative_title": "Hybrid Retrieval Enterprise Template",
+      "cluster_id": 2,
+      "what_it_is": "A combined structured and unstructured data retrieval template for regulated industries.",
+      "why_now": {
+        "popularity": "Moderate recurring theme across submissions.",
+        "feasibility_score_1_to_5": 3,
+        "feasibility_justification": "Requires integration across systems but leverages existing components.",
+        "value_score_1_to_5": 5,
+        "value_justification": "High enterprise impact for banking and insurance presales engagements."
+      },
+      "first_milestone_deliverable": "Develop a regulated-industry demo scenario with sample datasets."
+    }
+  ]
+}
+
 
 Input:
 {input_object}

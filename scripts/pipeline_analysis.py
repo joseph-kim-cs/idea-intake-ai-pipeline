@@ -19,9 +19,10 @@ URL = os.getenv('URL')
 
 PARAMS = {
     "decoding_method": "greedy",
-    "max_new_tokens": 300,
+    "max_new_tokens": 1000,
     "min_new_tokens": 0,
-    "repetition_penalty": 1
+    "repetition_penalty": 1,
+    "stop_sequences": ["<|eom_id|>"]
 }
 
 model = ModelInference(
@@ -162,6 +163,7 @@ def build_input_object(df: pd.DataFrame, similarity_threshold: float = 0.78) -> 
 
 def make_final_prompt(prompt_template: str, input_object: dict) -> str:
     input_json = json.dumps(input_object, ensure_ascii=False)
+    #print(input_json)
     return prompt_template.replace("{input_object}", input_json)
 
 

@@ -1,0 +1,61 @@
+{
+  "executive_summary_bullets": [
+    "Submissions are concentrated around AI and Data domains, with a focus on watsonx.ai.",
+    "There is a strong emphasis on leveraging Astra DB for enterprise-grade RAG deployments.",
+    "Automation use cases highlight the need for efficient intake triage workflows.",
+    "Recurring themes include hybrid search and multi-modal RAG for regulated industries.",
+    "There is an opportunity to package these ideas into standardized accelerators for banking and insurance clients."
+  ],
+  "top_3_recommendations": [
+    {
+      "rank": 1,
+      "initiative_title": "Hybrid Retrieval Blueprint",
+      "cluster_id": 0,
+      "what_it_is": "A solution that combines Astra DB vector search with structured Db2 data for enterprise-grade multi-modal RAG.",
+      "why_now": {
+        "popularity": "Unique submission with high potential impact.",
+        "feasibility_score_1_to_5": 4,
+        "feasibility_justification": "Leverages existing Astra DB and Db2 capabilities with manageable integration effort.",
+        "value_score_1_to_5": 5,
+        "value_justification": "Enables clients to query structured financial data and unstructured policy documents in a single response, providing high value for banking and insurance clients."
+      },
+      "first_milestone_deliverable": "Develop a proof-of-concept prototype integrating Astra DB and Db2 for hybrid search."
+    },
+    {
+      "rank": 2,
+      "initiative_title": "Astra DB-Powered RAG Accelerator",
+      "cluster_id": 1,
+      "what_it_is": "A pre-configured RAG accelerator template in IBM watsonx.ai that integrates Astra DB for hybrid search.",
+      "why_now": {
+        "popularity": "Unique submission with high potential for reducing onboarding time for clients in regulated industries.",
+        "feasibility_score_1_to_5": 5,
+        "feasibility_justification": "Builds on existing watsonx.ai and Astra DB capabilities with minimal development required.",
+        "value_score_1_to_5": 4,
+        "value_justification": "Reduces onboarding time for clients in regulated industries and provides better scalability for unstructured document ingestion."
+      },
+      "first_milestone_deliverable": "Design a pre-configured RAG accelerator template integrating Astra DB for hybrid search."
+    },
+    {
+      "rank": 3,
+      "initiative_title": "No-Code Idea Triage Workflow",
+      "cluster_id": 2,
+      "what_it_is": "A no-code idea triage workflow in watsonx.orchestrate that automatically categorizes intake submissions by domain using LLM classification.",
+      "why_now": {
+        "popularity": "Unique submission with potential to reduce manual review effort and provide structured scoring.",
+        "feasibility_score_1_to_5": 5,
+        "feasibility_justification": "Leverages existing watsonx.orchestrate and LLM classification capabilities with minimal development required.",
+        "value_score_1_to_5": 4,
+        "value_justification": "Reduces manual review effort and provides structured scoring for intake submissions, increasing efficiency and effectiveness."
+      },
+      "first_milestone_deliverable": "Develop a working prototype of the no-code idea triage workflow in watsonx.orchestrate."
+    }
+  ],
+  "metadata": {
+    "input_file": "data/Horizon_Market_Idea_Sample_Data.xlsx",
+    "total_ideas_processed": 6,
+    "total_clusters": 5,
+    "similarity_threshold": 0.78,
+    "generated_at": "2026-02-17T02:34:22.106148",
+    "pipeline_version": "1.0.0"
+  }
+}
