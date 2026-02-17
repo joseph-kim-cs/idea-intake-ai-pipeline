@@ -1,33 +1,26 @@
 # Idea Intake AI Pipeline
 
-An automated pipeline for processing, cleaning, clustering, and analyzing idea intake form submissions using IBM watsonx.ai.
+An automated pipeline for processing, cleaning, clustering, and analyzing idea intake form submissions using IBM watsonx.ai. Available as both a **web application** and **command-line tool**.
 
-## Overview
+## 🌟 Features
 
-This pipeline takes raw Excel data from idea intake forms and:
-1. **Cleans and normalizes** the data (removes test entries, standardizes fields)
-2. **Clusters similar ideas** using TF-IDF vectorization and hierarchical clustering
-3. **Generates AI-powered recommendations** using IBM watsonx.ai
-4. **Exports structured JSON** with executive summaries and prioritized initiatives
+- **Web Interface** - Beautiful, user-friendly UI with drag & drop file upload
+- **CLI Tool** - Command-line interface for automation and scripting
+- **Data Cleaning** - Automatic normalization and validation
+- **Smart Clustering** - Groups similar ideas using ML algorithms
+- **AI Recommendations** - Top 3 prioritized initiatives with feasibility/value scores
+- **JSON Export** - Structured output for further analysis
 
-## Prerequisites
+## 🚀 Quick Start
 
-- Python 3.11+
-- IBM watsonx.ai credentials (API key, Project ID, Model ID, URL)
+### Installation
 
-## Installation
-
-1. Clone the repository:
-```bash
-cd idea-intake-ai-pipeline
-```
-
-2. Install dependencies:
+1. **Install dependencies:**
 ```bash
 pip3 install -r requirements.txt
 ```
 
-3. Set up environment variables in `.env`:
+2. **Set up environment variables** (create `.env` file):
 ```env
 API_KEY=your_watsonx_api_key
 PROJECT_ID=your_project_id
@@ -35,44 +28,99 @@ MODEL_ID=your_model_id
 URL=your_watsonx_url
 ```
 
-## Usage
+### Option 1: Web Application (Recommended)
 
-### Basic Usage
-
-Run the pipeline with default settings:
+**Start the web server:**
 ```bash
 python3 main.py
 ```
 
-This will:
-- Read from `data/Horizon_Market_Idea_Sample_Data.xlsx`
-- Save cleaned data to `data/cleaned_ideas.csv`
-- Export analysis to `results/analysis_output.json`
+**Open your browser:**
+Navigate to **http://localhost:5000**
 
-### Custom Input/Output
+**Upload and analyze:**
+1. Drag & drop your Excel file or click to browse
+2. Adjust similarity threshold (optional)
+3. Click "Analyze Ideas"
+4. View recommendations and download JSON
 
-Specify custom file paths:
+### Option 2: Command Line
+
+**Basic usage:**
 ```bash
-python3 main.py --input path/to/your/file.xlsx --output path/to/output.json
+python3 -c "from routes.pipeline_routes import run_pipeline; run_pipeline('data/your_file.xlsx', 'results/output.json')"
 ```
 
-### Advanced Options
+**Or create a CLI script** (`cli.py`):
+```python
+import sys
+from routes.pipeline_routes import run_pipeline
 
-```bash
-python3 main.py \
-  --input data/my_ideas.xlsx \
-  --output results/my_analysis.json \
-  --similarity-threshold 0.85 \
-  --no-intermediate
+if __name__ == "__main__":
+    input_file = sys.argv[1] if len(sys.argv) > 1 else "data/Horizon_Market_Idea_Sample_Data.xlsx"
+    output_file = sys.argv[2] if len(sys.argv) > 2 else "results/analysis_output.json"
+    run_pipeline(input_file, output_file)
 ```
 
-**Options:**
-- `--input, -i`: Path to input Excel file (default: `data/Horizon_Market_Idea_Sample_Data.xlsx`)
-- `--output, -o`: Path to output JSON file (default: `results/analysis_output.json`)
-- `--similarity-threshold, -s`: Clustering similarity threshold 0-1 (default: 0.78, higher = stricter clustering)
-- `--no-intermediate`: Don't save intermediate cleaned CSV file
+Then run:
+```bash
+python3 cli.py data/your_file.xlsx results/output.json
+```
 
-## Pipeline Components
+## 📁 Project Structure
+
+```
+idea-intake-ai-pipeline/
+├── main.py                          # Flask web application
+├── routes/
+│   └── pipeline_routes.py          # Core pipeline logic
+├── templates/
+│   └── index.html                  # Web UI
+├── static/
+│   └── css/
+│       └── style.css               # Styling
+├── scripts/
+│   ├── pipeline_cleaning.py        # Data cleaning functions
+│   └── pipeline_analysis.py        # Clustering & analysis
+├── prompts/
+│   └── idea_summary_prompt.txt     # AI prompt template
+├── uploads/                        # Temporary uploads (auto-created)
+├── results/                        # Generated JSON results
+└── data/                           # Sample data
+    └── Horizon_Market_Idea_Sample_Data.xlsx
+```
+
+## 🎨 Web Interface Guide
+
+### Upload Excel File
+
+Your Excel file should contain these columns:
+- **Name** - Submitter name
+- **Software Portfolio Domain** - Domain (Data, AI, Automation, etc.)
+- **Other Domain** - Alternative domain if "Other" selected
+- **Product** - Product name (watsonx.ai, watsonx.orchestrate, etc.)
+- **Idea Description** - Full idea description (required)
+- **Asset Links** - URLs to related assets (optional)
+
+### Similarity Threshold
+
+Controls how strictly ideas are clustered:
+- **Lower (0.6-0.75)**: More aggressive clustering, fewer groups
+- **Higher (0.8-0.9)**: Stricter clustering, more groups
+- **Default: 0.78** - Balanced approach
+
+### Results Display
+
+The web interface shows:
+- **Summary Statistics** - Total ideas, clusters, processing time
+- **Executive Summary** - Key insights and themes
+- **Top 3 Recommendations** - Prioritized initiatives with:
+  - Feasibility scores (1-5)
+  - Value scores (1-5)
+  - Detailed justifications
+  - First milestone deliverables
+
+## 📊 Pipeline Components
 
 ### 1. Data Cleaning (`scripts/pipeline_cleaning.py`)
 
@@ -85,8 +133,6 @@ python3 main.py \
 - `handle_missing_values()` - Manages missing data
 - `add_metadata()` - Adds word count, asset link flags, IDs
 
-**Output:** Cleaned CSV with standardized columns
-
 ### 2. Analysis & Clustering (`scripts/pipeline_analysis.py`)
 
 **Functions:**
@@ -94,9 +140,7 @@ python3 main.py \
 - `build_input_object()` - Creates structured input for AI model
 - `representative_idea()` - Selects most representative idea per cluster
 
-**Output:** Clustered data with initiative candidates
-
-### 3. AI Recommendations (`main.py`)
+### 3. AI Recommendations (`routes/pipeline_routes.py`)
 
 Uses IBM watsonx.ai to:
 - Generate executive summary bullets
@@ -104,9 +148,40 @@ Uses IBM watsonx.ai to:
 - Score feasibility (1-5) and value (1-5)
 - Suggest first milestone deliverables
 
-## Output Format
+## 🔧 API Endpoints (Web Mode)
 
-The pipeline generates a JSON file with:
+### `GET /`
+Main web interface
+
+### `POST /upload`
+Upload and process Excel file
+
+**Request:**
+- `file`: Excel file (multipart/form-data)
+- `similarity_threshold`: Float (0-1, optional)
+
+**Response:**
+```json
+{
+  "success": true,
+  "result": {
+    "executive_summary_bullets": [...],
+    "top_3_recommendations": [...],
+    "metadata": {...}
+  },
+  "output_file": "20260217_123456_analysis.json"
+}
+```
+
+### `GET /download/<filename>`
+Download result JSON file
+
+### `GET /health`
+Health check endpoint
+
+## 📤 Output Format
+
+The pipeline generates JSON with:
 
 ```json
 {
@@ -142,35 +217,12 @@ The pipeline generates a JSON file with:
 }
 ```
 
-## Input Data Format
+## 🛠️ Customization
 
-The Excel file should have these columns:
-- **Name** - Submitter name
-- **Software Portfolio Domain** - Domain (Data, AI, Automation, etc.)
-- **Other Domain** - Alternative domain if "Other" selected
-- **Product** - Product name (watsonx.ai, watsonx.orchestrate, etc.)
-- **Idea Description** - Full idea description
-- **Asset Links** - URLs to related assets
+### Change AI Model Parameters
 
-## Customization
+Edit `routes/pipeline_routes.py`:
 
-### Modify Clustering Threshold
-
-Adjust similarity threshold (0-1):
-- **Lower (0.6-0.75)**: More aggressive clustering, fewer clusters
-- **Higher (0.8-0.9)**: Stricter clustering, more clusters
-
-### Customize AI Prompt
-
-Edit `prompts/idea_summary_prompt.txt` to change:
-- Output format
-- Scoring criteria
-- Recommendation style
-- Number of recommendations
-
-### Adjust Model Parameters
-
-Edit `main.py` or `scripts/pipeline_analysis.py`:
 ```python
 PARAMS = {
     "decoding_method": "greedy",
@@ -181,50 +233,113 @@ PARAMS = {
 }
 ```
 
-## Project Structure
+### Modify Prompt Template
 
-```
-idea-intake-ai-pipeline/
-├── main.py                          # Main pipeline orchestrator
-├── requirements.txt                 # Python dependencies
-├── .env                            # Environment variables (not in git)
-├── README.md                       # This file
-├── data/
-│   ├── Horizon_Market_Idea_Sample_Data.xlsx
-│   └── cleaned_ideas.csv           # Generated by pipeline
-├── scripts/
-│   ├── pipeline_cleaning.py        # Data cleaning functions
-│   └── pipeline_analysis.py        # Clustering & analysis
-├── prompts/
-│   └── idea_summary_prompt.txt     # AI prompt template
-└── results/
-    └── analysis_output.json        # Generated recommendations
+Edit `prompts/idea_summary_prompt.txt` to change:
+- Output format
+- Number of recommendations
+- Scoring criteria
+- Analysis style
+
+### Customize Web UI
+
+Edit `static/css/style.css` to change:
+- Colors and gradients
+- Layout and spacing
+- Fonts and typography
+- Responsive breakpoints
+
+### Adjust File Upload Limits
+
+Edit `main.py`:
+
+```python
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
 ```
 
-## Troubleshooting
+## 🐛 Troubleshooting
 
-### Missing Dependencies
-```bash
-pip3 install pandas openpyxl scikit-learn ibm-watsonx-ai python-dotenv
+### Web Application Issues
+
+**Port Already in Use:**
+```python
+# Change port in main.py
+app.run(debug=True, host='0.0.0.0', port=5001)
 ```
+
+**File Upload Fails:**
+- Check file size (max 16MB)
+- Verify file format (.xlsx or .xls)
+- Ensure Excel file has required columns
 
 ### API Authentication Errors
 - Verify `.env` file has correct credentials
-- Check API key has not expired
+- Check API key hasn't expired
 - Ensure project ID is correct
 
 ### Clustering Issues
-- Try adjusting `--similarity-threshold`
+- Try adjusting `similarity_threshold`
 - Check that idea descriptions are substantial (>15 characters)
 - Verify data cleaning removed test entries
 
-## License
+## 🚀 Production Deployment
+
+### Using Gunicorn
+
+```bash
+pip3 install gunicorn
+gunicorn -w 4 -b 0.0.0.0:5000 main:app
+```
+
+### Using Docker
+
+Create `Dockerfile`:
+
+```dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+EXPOSE 5000
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "main:app"]
+```
+
+Build and run:
+
+```bash
+docker build -t idea-intake-pipeline .
+docker run -p 5000:5000 --env-file .env idea-intake-pipeline
+```
+
+## 📊 Performance Tips
+
+- **Smaller files process faster** - Consider filtering data before upload
+- **Adjust similarity threshold** - Higher values = faster clustering
+- **Use production mode** - Set `debug=False` in `main.py` for production
+- **Enable caching** - Cache model initialization for repeated requests
+
+## 🔒 Security Notes
+
+- Never commit `.env` file to version control
+- Use HTTPS in production
+- Implement authentication for production deployments
+- Sanitize file uploads
+- Set appropriate CORS policies
+- Limit file upload sizes
+
+## 📝 License
 
 MIT License
 
-## Contributing
+## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Submit a pull request
+4. Test thoroughly
+5. Submit a pull request
+
+---
+
+**Built with ❤️ using Flask, IBM watsonx.ai, scikit-learn, and modern web technologies**

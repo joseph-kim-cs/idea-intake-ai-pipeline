@@ -1,273 +1,134 @@
 """
-Main pipeline orchestrator for idea intake processing.
+Flask Web Application for Idea Intake AI Pipeline
 
-This script:
-1. Loads and cleans data from an Excel file
-2. Performs clustering and analysis
-3. Generates AI-powered recommendations using watsonx.ai
-4. Exports results as JSON
-
-Usage:
-    python3 main.py --input data/your_file.xlsx --output results/output.json
-    python3 main.py  # Uses default paths
+This web app allows users to:
+1. Upload Excel files with idea intake data
+2. Process the data through the AI pipeline
+3. View recommendations on the web interface
 """
 
-import argparse
-import json
+from flask import Flask, render_template, request, jsonify, send_file
 import os
-import sys
 from pathlib import Path
+from werkzeug.utils import secure_filename
+import json
 from datetime import datetime
 
-import pandas as pd
-from dotenv import load_dotenv
+# Import pipeline functions
+from routes.pipeline_routes import run_pipeline
 
-# Import cleaning functions
-from scripts.pipeline_cleaning import clean_pipeline
+app = Flask(__name__)
 
-# Import analysis functions
-from scripts.pipeline_analysis import (
-    build_input_object,
-    load_prompt_template,
-    make_final_prompt
-)
+# Configuration
+UPLOAD_FOLDER = Path('uploads')
+RESULTS_FOLDER = Path('results')
+ALLOWED_EXTENSIONS = {'xlsx', 'xls'}
 
-from ibm_watsonx_ai.foundation_models import ModelInference
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['RESULTS_FOLDER'] = RESULTS_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
-
-def setup_watsonx_model():
-    """Initialize watsonx.ai model with credentials from environment."""
-    load_dotenv()
-    
-    API_KEY = os.getenv('API_KEY')
-    PROJECT_ID = os.getenv('PROJECT_ID')
-    MODEL_ID = os.getenv('MODEL_ID')
-    URL = os.getenv('URL')
-    
-    # Validate credentials
-    missing = []
-    if not API_KEY:
-        missing.append('API_KEY')
-    if not PROJECT_ID:
-        missing.append('PROJECT_ID')
-    if not MODEL_ID:
-        missing.append('MODEL_ID')
-    if not URL:
-        missing.append('URL')
-    
-    if missing:
-        raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
-    
-    PARAMS = {
-        "decoding_method": "greedy",
-        "max_new_tokens": 1000,
-        "min_new_tokens": 0,
-        "repetition_penalty": 1,
-        "stop_sequences": ["<|eom_id|>"]
-    }
-    
-    model = ModelInference(
-        model_id=MODEL_ID,
-        params=PARAMS,
-        credentials={
-            "url": URL,
-            "apikey": API_KEY
-        },
-        project_id=PROJECT_ID,
-    )
-    
-    return model
+# Create necessary directories
+UPLOAD_FOLDER.mkdir(exist_ok=True)
+RESULTS_FOLDER.mkdir(exist_ok=True)
 
 
-def run_pipeline(input_file, output_file=None, similarity_threshold=0.78, save_intermediate=True):
-    """
-    Run the complete idea intake pipeline.
-    
-    Args:
-        input_file: Path to input Excel file
-        output_file: Path to output JSON file (optional)
-        similarity_threshold: Threshold for clustering similar ideas (0-1)
-        save_intermediate: Whether to save intermediate cleaned CSV
-    
-    Returns:
-        dict: Final analysis results as JSON object
-    """
-    print("="*70)
-    print("IDEA INTAKE AI PIPELINE")
-    print("="*70)
-    print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-    
-    # Step 1: Data Cleaning
-    print("STEP 1: Data Cleaning")
-    print("-" * 70)
-    
-    input_path = Path(input_file)
-    if not input_path.exists():
-        raise FileNotFoundError(f"Input file not found: {input_file}")
-    
-    # Create temporary cleaned CSV path
-    temp_csv = Path("data/temp_cleaned_ideas.csv")
-    if save_intermediate:
-        temp_csv = Path("data/cleaned_ideas.csv")
-    
-    cleaned_df = clean_pipeline(input_path, temp_csv)
-    print(f"Cleaned data: {len(cleaned_df)} rows\n")
-    
-    # Step 2: Clustering and Analysis
-    print("STEP 2: Clustering and Analysis")
-    print("-" * 70)
-    
-    input_object = build_input_object(cleaned_df, similarity_threshold=similarity_threshold)
-    
-    print(f"Total clusters identified: {input_object['dataset_summary']['total_clusters']}")
-    print(f"Initiative candidates: {len(input_object['initiative_candidates'])}")
-    
-    # Display cluster summary
-    print("\nCluster Summary:")
-    for candidate in input_object['initiative_candidates'][:5]:  # Show top 5
-        print(f"  - Cluster {candidate['cluster_id']}: {candidate['popularity_count']} ideas")
-    
-    if len(input_object['initiative_candidates']) > 5:
-        print(f"  ... and {len(input_object['initiative_candidates']) - 5} more clusters")
-    print()
-    
-    # Step 3: AI-Powered Recommendations
-    print("STEP 3: Generating AI Recommendations")
-    print("-" * 70)
-    
+def allowed_file(filename):
+    """Check if file extension is allowed."""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+@app.route('/')
+def index():
+    """Render the main page."""
+    return render_template('index.html')
+
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    """Handle file upload and process through pipeline."""
     try:
-        model = setup_watsonx_model()
-        print("✓ Connected to watsonx.ai")
+        # Check if file was uploaded
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file uploaded'}), 400
         
-        # Load prompt template
-        prompt_template = load_prompt_template("prompts/idea_summary_prompt.txt")
-        final_prompt = make_final_prompt(prompt_template, input_object)
+        file = request.files['file']
         
-        print("✓ Generating recommendations...")
-        response = model.generate(final_prompt)
-        raw_text = response["results"][0]["generated_text"]
+        # Check if filename is empty
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
         
-        # Parse JSON from response
-        try:
-            # Try to extract JSON from the response
-            json_start = raw_text.find('{')
-            json_end = raw_text.rfind('}') + 1
-            if json_start != -1 and json_end > json_start:
-                json_text = raw_text[json_start:json_end]
-                result = json.loads(json_text)
-            else:
-                result = json.loads(raw_text)
-        except json.JSONDecodeError:
-            print("⚠ Warning: Could not parse JSON from model response")
-            result = {
-                "raw_response": raw_text,
-                "error": "Failed to parse JSON from model output"
-            }
+        # Check if file type is allowed
+        if not allowed_file(file.filename):
+            return jsonify({'error': 'Invalid file type. Please upload .xlsx or .xls file'}), 400
         
-        print("Recommendations generated\n")
+        # Save uploaded file
+        filename = secure_filename(file.filename)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        unique_filename = f"{timestamp}_{filename}"
+        filepath = app.config['UPLOAD_FOLDER'] / unique_filename
+        file.save(filepath)
         
-    except Exception as e:
-        print(f"AI generation failed: {str(e)}")
-        print("Returning analysis without AI recommendations\n")
-        result = {
-            "input_analysis": input_object,
-            "error": f"AI generation failed: {str(e)}"
-        }
-    
-    # Add metadata
-    result["metadata"] = {
-        "input_file": str(input_file),
-        "total_ideas_processed": len(cleaned_df),
-        "total_clusters": input_object['dataset_summary']['total_clusters'],
-        "similarity_threshold": similarity_threshold,
-        "generated_at": datetime.now().isoformat(),
-        "pipeline_version": "1.0.0"
-    }
-    
-    # Step 4: Export Results
-    print("STEP 4: Exporting Results")
-    print("-" * 70)
-    
-    if output_file:
-        output_path = Path(output_file)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+        # Get similarity threshold from request (optional)
+        similarity_threshold = float(request.form.get('similarity_threshold', 0.78))
         
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(result, f, indent=2, ensure_ascii=False)
+        # Run pipeline
+        output_filename = f"{timestamp}_analysis.json"
+        output_path = app.config['RESULTS_FOLDER'] / output_filename
         
-        print(f"Results saved to: {output_file}")
-    
-    # Clean up temporary file if not saving intermediate
-    if not save_intermediate and temp_csv.exists():
-        temp_csv.unlink()
-    
-    print("\n" + "="*70)
-    print("PIPELINE COMPLETE")
-    print("="*70)
-    print(f"Finished at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-    
-    return result
-
-
-def main():
-    """Main entry point for the pipeline."""
-    parser = argparse.ArgumentParser(
-        description="Process idea intake data through cleaning, clustering, and AI analysis"
-    )
-    parser.add_argument(
-        '--input',
-        '-i',
-        default='data/Horizon_Market_Idea_Sample_Data.xlsx',
-        help='Path to input Excel file (default: data/Horizon_Market_Idea_Sample_Data.xlsx)'
-    )
-    parser.add_argument(
-        '--output',
-        '-o',
-        default='results/analysis_output.json',
-        help='Path to output JSON file (default: results/analysis_output.json)'
-    )
-    parser.add_argument(
-        '--similarity-threshold',
-        '-s',
-        type=float,
-        default=0.78,
-        help='Similarity threshold for clustering (0-1, default: 0.78)'
-    )
-    parser.add_argument(
-        '--no-intermediate',
-        action='store_true',
-        help='Do not save intermediate cleaned CSV file'
-    )
-    
-    args = parser.parse_args()
-    
-    try:
         result = run_pipeline(
-            input_file=args.input,
-            output_file=args.output,
-            similarity_threshold=args.similarity_threshold,
-            save_intermediate=not args.no_intermediate
+            input_file=str(filepath),
+            output_file=str(output_path),
+            similarity_threshold=similarity_threshold,
+            save_intermediate=False,
+            verbose=False
         )
         
-        # Print summary
-        if "top_3_recommendations" in result:
-            print("\nTOP 3 RECOMMENDATIONS:")
-            for rec in result["top_3_recommendations"]:
-                print(f"\n{rec['rank']}. {rec['initiative_title']}")
-                print(f"   Cluster ID: {rec['cluster_id']}")
-                print(f"   Feasibility: {rec['why_now']['feasibility_score_1_to_5']}/5")
-                print(f"   Value: {rec['why_now']['value_score_1_to_5']}/5")
+        # Clean up uploaded file
+        filepath.unlink()
         
-        return 0
+        # Return results
+        return jsonify({
+            'success': True,
+            'result': result,
+            'output_file': output_filename
+        })
         
     except Exception as e:
-        print(f"\nERROR: {str(e)}", file=sys.stderr)
-        import traceback
-        traceback.print_exc()
-        return 1
+        return jsonify({
+            'error': str(e),
+            'success': False
+        }), 500
 
 
-if __name__ == "__main__":
-    sys.exit(main())
+@app.route('/download/<filename>')
+def download_file(filename):
+    """Download result JSON file."""
+    try:
+        filepath = app.config['RESULTS_FOLDER'] / filename
+        if filepath.exists():
+            return send_file(filepath, as_attachment=True)
+        else:
+            return jsonify({'error': 'File not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/health')
+def health():
+    """Health check endpoint."""
+    return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()})
+
+
+if __name__ == '__main__':
+    print("="*70)
+    print("IDEA INTAKE AI PIPELINE - WEB APPLICATION")
+    print("="*70)
+    print("\nStarting Flask server...")
+    print("Access the application at: http://localhost:5001")
+    print("\nPress CTRL+C to stop the server\n")
+    print("="*70)
+    
+    app.run(debug=True, host='0.0.0.0', port=5001)
 
 # Made with Bob

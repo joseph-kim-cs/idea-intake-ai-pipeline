@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Idea Intake AI Pipeline</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💡 Idea Intake AI Pipeline</h1>
+            <p class="subtitle">Upload your Excel file to get AI-powered recommendations</p>
+        </header>
+
+        <div class="upload-section">
+            <div class="upload-card">
+                <h2>Upload Excel File</h2>
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <div class="file-input-wrapper">
+                        <input type="file" id="fileInput" name="file" accept=".xlsx,.xls" required>
+                        <label for="fileInput" class="file-label">
+                            <span class="file-icon">📁</span>
+                            <span id="fileName">Choose Excel file...</span>
+                        </label>
+                    </div>
+
+                    <div class="threshold-input">
+                        <label for="similarityThreshold">Similarity Threshold (0-1):</label>
+                        <input type="number" id="similarityThreshold" name="similarity_threshold" 
+                               min="0" max="1" step="0.01" value="0.78">
+                        <small>Higher values = stricter clustering</small>
+                    </div>
+
+                    <button type="submit" class="btn-primary" id="submitBtn">
+                        <span class="btn-text">Analyze Ideas</span>
+                        <span class="btn-loader" style="display: none;">Processing...</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div id="loadingSection" class="loading-section" style="display: none;">
+            <div class="loader"></div>
+            <p>Processing your ideas... This may take a minute.</p>
+        </div>
+
+        <div id="errorSection" class="error-section" style="display: none;">
+            <div class="error-card">
+                <h3>❌ Error</h3>
+                <p id="errorMessage"></p>
+                <button onclick="resetForm()" class="btn-secondary">Try Again</button>
+            </div>
+        </div>
+
+        <div id="resultsSection" class="results-section" style="display: none;">
+            <div class="results-header">
+                <h2>📊 Analysis Results</h2>
+                <button onclick="downloadJSON()" class="btn-download" id="downloadBtn">
+                    💾 Download JSON
+                </button>
+            </div>
+
+            <div class="metadata-card">
+                <h3>📈 Summary</h3>
+                <div class="metadata-grid" id="metadataGrid"></div>
+            </div>
+
+            <div class="summary-card">
+                <h3>📝 Executive Summary</h3>
+                <ul id="executiveSummary" class="summary-list"></ul>
+            </div>
+
+            <div class="recommendations-section">
+                <h3>🎯 Top 3 Recommendations</h3>
+                <div id="recommendationsContainer"></div>
+            </div>
+
+            <button onclick="resetForm()" class="btn-secondary">Upload Another File</button>
+        </div>
+    </div>
+
+    <script>
+        let currentOutputFile = null;
+
+        // Handle file input display
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const fileName = e.target.files[0]?.name || 'Choose Excel file...';
+            document.getElementById('fileName').textContent = fileName;
+        });
+
+        // Handle form submission
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const submitBtn = document.getElementById('submitBtn');
+            const btnText = submitBtn.querySelector('.btn-text');
+            const btnLoader = submitBtn.querySelector('.btn-loader');
+            
+            // Show loading state
+            document.querySelector('.upload-section').style.display = 'none';
+            document.getElementById('loadingSection').style.display = 'block';
+            document.getElementById('errorSection').style.display = 'none';
+            document.getElementById('resultsSection').style.display = 'none';
+            
+            submitBtn.disabled = true;
+            btnText.style.display = 'none';
+            btnLoader.style.display = 'inline';
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    currentOutputFile = data.output_file;
+                    displayResults(data.result);
+                } else {
+                    showError(data.error || 'An error occurred during processing');
+                }
+            } catch (error) {
+                showError('Network error: ' + error.message);
+            } finally {
+                submitBtn.disabled = false;
+                btnText.style.display = 'inline';
+                btnLoader.style.display = 'none';
+                document.getElementById('loadingSection').style.display = 'none';
+            }
+        });
+
+        function displayResults(result) {
+            // Display metadata
+            const metadata = result.metadata;
+            const metadataGrid = document.getElementById('metadataGrid');
+            metadataGrid.innerHTML = `
+                <div class="metadata-item">
+                    <span class="metadata-label">Ideas Processed:</span>
+                    <span class="metadata-value">${metadata.total_ideas_processed}</span>
+                </div>
+                <div class="metadata-item">
+                    <span class="metadata-label">Clusters Found:</span>
+                    <span class="metadata-value">${metadata.total_clusters}</span>
+                </div>
+                <div class="metadata-item">
+                    <span class="metadata-label">Similarity Threshold:</span>
+                    <span class="metadata-value">${metadata.similarity_threshold}</span>
+                </div>
+                <div class="metadata-item">
+                    <span class="metadata-label">Generated:</span>
+                    <span class="metadata-value">${new Date(metadata.generated_at).toLocaleString()}</span>
+                </div>
+            `;
+
+            // Display executive summary
+            const summaryList = document.getElementById('executiveSummary');
+            summaryList.innerHTML = '';
+            if (result.executive_summary_bullets) {
+                result.executive_summary_bullets.forEach(bullet => {
+                    const li = document.createElement('li');
+                    li.textContent = bullet;
+                    summaryList.appendChild(li);
+                });
+            }
+
+            // Display recommendations
+            const container = document.getElementById('recommendationsContainer');
+            container.innerHTML = '';
+            if (result.top_3_recommendations) {
+                result.top_3_recommendations.forEach(rec => {
+                    const card = createRecommendationCard(rec);
+                    container.appendChild(card);
+                });
+            }
+
+            document.getElementById('resultsSection').style.display = 'block';
+        }
+
+        function createRecommendationCard(rec) {
+            const card = document.createElement('div');
+            card.className = 'recommendation-card';
+            
+            const rankBadge = getRankBadge(rec.rank);
+            
+            card.innerHTML = `
+                <div class="rec-header">
+                    <div class="rec-rank">${rankBadge} Rank ${rec.rank}</div>
+                    <div class="rec-cluster">Cluster ${rec.cluster_id}</div>
+                </div>
+                <h4 class="rec-title">${rec.initiative_title}</h4>
+                <p class="rec-description">${rec.what_it_is}</p>
+                
+                <div class="rec-scores">
+                    <div class="score-item">
+                        <span class="score-label">Feasibility</span>
+                        <span class="score-value">${rec.why_now.feasibility_score_1_to_5}/5</span>
+                        <div class="score-bar">
+                            <div class="score-fill" style="width: ${rec.why_now.feasibility_score_1_to_5 * 20}%"></div>
+                        </div>
+                    </div>
+                    <div class="score-item">
+                        <span class="score-label">Value</span>
+                        <span class="score-value">${rec.why_now.value_score_1_to_5}/5</span>
+                        <div class="score-bar">
+                            <div class="score-fill value" style="width: ${rec.why_now.value_score_1_to_5 * 20}%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rec-details">
+                    <div class="detail-section">
+                        <strong>📊 Popularity:</strong>
+                        <p>${rec.why_now.popularity}</p>
+                    </div>
+                    <div class="detail-section">
+                        <strong>🔧 Feasibility:</strong>
+                        <p>${rec.why_now.feasibility_justification}</p>
+                    </div>
+                    <div class="detail-section">
+                        <strong>💎 Value:</strong>
+                        <p>${rec.why_now.value_justification}</p>
+                    </div>
+                    <div class="detail-section milestone">
+                        <strong>🎯 First Milestone:</strong>
+                        <p>${rec.first_milestone_deliverable}</p>
+                    </div>
+                </div>
+            `;
+            
+            return card;
+        }
+
+        function getRankBadge(rank) {
+            const badges = ['🥇', '🥈', '🥉'];
+            return badges[rank - 1] || '🏅';
+        }
+
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorSection').style.display = 'block';
+        }
+
+        function resetForm() {
+            document.getElementById('uploadForm').reset();
+            document.getElementById('fileName').textContent = 'Choose Excel file...';
+            document.querySelector('.upload-section').style.display = 'block';
+            document.getElementById('errorSection').style.display = 'none';
+            document.getElementById('resultsSection').style.display = 'none';
+            currentOutputFile = null;
+        }
+
+        function downloadJSON() {
+            if (currentOutputFile) {
+                window.location.href = `/download/${currentOutputFile}`;
+            }
+        }
+    </script>
+</body>
+</html>
